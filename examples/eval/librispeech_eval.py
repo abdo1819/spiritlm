@@ -6,8 +6,12 @@ from torchaudio.datasets import LIBRISPEECH
 from tqdm import tqdm
 from transformers import GenerationConfig
 
-import wandb
+try:
+    import wandb  # type: ignore
+except ImportError:  # pragma: no cover - wandb optional
+    wandb = None
 from dotenv import load_dotenv
+from torch.utils.tensorboard import SummaryWriter
 
 from spiritlm.model.spiritlm_model import (
     Spiritlm,
@@ -45,11 +49,16 @@ def main():
     data_root = os.getenv("LIBRISPEECH_ROOT", "data/LibriSpeech")
     subset = os.getenv("LIBRISPEECH_SET", "test-clean")
 
-    wandb.init(
-        project=os.getenv("WANDB_PROJECT"),
-        entity=os.getenv("WANDB_ENTITY"),
-        name=f"{model_name}-{subset}",
-    )
+    use_wandb = wandb is not None and os.getenv("WANDB_PROJECT")
+    writer = None
+    if use_wandb:
+        wandb.init(
+            project=os.getenv("WANDB_PROJECT"),
+            entity=os.getenv("WANDB_ENTITY"),
+            name=f"{model_name}-{subset}",
+        )
+    else:
+        writer = SummaryWriter(log_dir="runs/librispeech_eval")
 
     dataset = LIBRISPEECH(data_root, url=subset, download=False)
     model = Spiritlm(model_name)
@@ -68,10 +77,20 @@ def main():
         ref = transcript.lower().strip()
         sample_wer = wer(ref, pred)
         total_wer += sample_wer
-        wandb.log({"sample_wer": sample_wer})
+        if use_wandb:
+            wandb.log({"sample_wer": sample_wer})
+        else:
+            assert writer is not None
+            writer.add_scalar("sample_wer", sample_wer)
 
     avg_wer = total_wer / len(dataset)
-    wandb.summary["wer"] = avg_wer
+    if use_wandb:
+        wandb.summary["wer"] = avg_wer
+    else:
+        assert writer is not None
+        writer.add_scalar("wer", avg_wer)
+        writer.flush()
+        writer.close()
     print(f"Average WER: {avg_wer:.4f}")
 
 
