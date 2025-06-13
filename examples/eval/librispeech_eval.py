@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 import torchaudio
+import torch
 from torchaudio.datasets import LIBRISPEECH
 from tqdm import tqdm
 from transformers import GenerationConfig
@@ -60,7 +61,46 @@ def main():
     else:
         writer = SummaryWriter(log_dir="runs/librispeech_eval")
 
-    dataset = LIBRISPEECH(data_root, url=subset, download=False)
+    subset_dir = Path(data_root) / subset
+    if subset_dir.exists():
+        dataset = LIBRISPEECH(data_root, url=subset, download=False)
+    else:
+        try:
+            from datasets import load_dataset  # type: ignore
+        except ImportError as err:  # pragma: no cover - datasets optional
+            raise RuntimeError(
+                f"LibriSpeech subset '{subset}' not found at {subset_dir}. "
+                "Install the 'datasets' package or download the dataset manually."
+            ) from err
+
+        def _hf_config_and_split(name: str) -> tuple[str, str]:
+            if name.startswith("test-"):
+                config = "clean" if "clean" in name else "other"
+                return config, "test"
+            if name.startswith("dev-"):
+                config = "clean" if "clean" in name else "other"
+                return config, "validation"
+            if name.startswith("train-clean-100"):
+                return "clean", "train.100"
+            if name.startswith("train-clean-360"):
+                return "clean", "train.360"
+            if name.startswith("train-other-500"):
+                return "other", "train.500"
+            raise ValueError(f"Unsupported subset {name}")
+
+        hf_config, hf_split = _hf_config_and_split(subset)
+        hf_dataset = load_dataset("librispeech_asr", hf_config, split=hf_split)
+        dataset = [
+            (
+                torch.tensor(sample["audio"]["array"]),
+                sample["audio"]["sampling_rate"],
+                sample.get("text", ""),
+                0,
+                0,
+                0,
+            )
+            for sample in hf_dataset
+        ]
     model = Spiritlm(model_name)
 
     total_wer = 0.0
