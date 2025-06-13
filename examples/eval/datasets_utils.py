@@ -81,7 +81,7 @@ def load_gigaspeech(root: str, subset: str) -> Iterable[Example]:
         yield from _load_gigaspeech_from_hf(subset)
 
 
-def load_dataset(name: str, root: str, subset: str) -> Iterable[Example]:
+def load_dataset_local(name: str, root: str, subset: str) -> Iterable[Example]:
     name = name.lower()
     if name in {"librispeech", "libri"}:
         return load_librispeech(root, subset)

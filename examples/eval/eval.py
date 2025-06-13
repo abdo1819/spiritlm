@@ -21,7 +21,7 @@ from spiritlm.model.spiritlm_model import (
     OutputModality,
 )
 
-from examples.eval.datasets import load_dataset
+from examples.eval.datasets_utils import load_dataset_local
 from examples.eval.metrics import wer
 
 
@@ -72,7 +72,7 @@ def main() -> None:
     else:
         writer = SummaryWriter(log_dir=f"runs/{dataset_name}_eval")
 
-    dataset = load_dataset(dataset_name, data_root, subset)
+    dataset = load_dataset_local(dataset_name, data_root, subset)
     model = Spiritlm(model_name)
     avg_wer = _evaluate_dataset(model, dataset, use_wandb, writer)
 
