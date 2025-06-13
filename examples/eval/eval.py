@@ -59,7 +59,7 @@ def main() -> None:
     model_name = os.getenv("MODEL_NAME", "spirit-lm-expressive-7b")
     dataset_name = os.getenv("DATASET", "librispeech")
     subset = os.getenv("DATASET_SET", "test-clean")
-    data_root = os.getenv("DATASET_ROOT", "data")
+    # data_root = os.getenv("DATASET_ROOT", "data")
 
     use_wandb = wandb is not None and os.getenv("WANDB_PROJECT")
     writer = None
@@ -72,7 +72,7 @@ def main() -> None:
     else:
         writer = SummaryWriter(log_dir=f"runs/{dataset_name}_eval")
 
-    dataset = load_dataset_local(dataset_name, data_root, subset)
+    dataset = load_dataset_local(dataset_name, subset)
     model = Spiritlm(model_name)
     avg_wer = _evaluate_dataset(model, dataset, use_wandb, writer)
 
