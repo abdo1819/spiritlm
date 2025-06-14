@@ -37,21 +37,25 @@ def _evaluate_dataset(
 ) -> float:
     total = 0.0
     count = 0
-    for wav, sr, transcript, sample_id in tqdm(dataset, desc="Evaluating", total=total_size):
-        if sr != 16000:
-            wav = torchaudio.functional.resample(wav, sr, 16000)
-        wav = wav.squeeze(0)
-        wav = wav.to(dtype=torch.float32)
-        outputs = model.generate(
-            output_modality=OutputModality.TEXT,
-            interleaved_inputs=[GenerationInput(content=wav, content_type=ContentType.SPEECH)],
-            generation_config=GenerationConfig(do_sample=False, max_new_tokens=256),
-        )
-        pred = outputs[0].content.strip().lower()
-        ref = transcript.lower().strip()
-        sample_wer = wer(ref, pred)
-        total += sample_wer
-        count += 1
+    # Using inference_mode disables gradient calculations and speeds up inference.
+    # Ensure the underlying HF model is in eval mode before generation.
+    model.model.eval()
+    with torch.inference_mode():
+        for wav, sr, transcript, sample_id in tqdm(dataset, desc="Evaluating", total=total_size):
+            if sr != 16000:
+                wav = torchaudio.functional.resample(wav, sr, 16000)
+            wav = wav.squeeze(0)
+            wav = wav.to(dtype=torch.float32)
+            outputs = model.generate(
+                output_modality=OutputModality.TEXT,
+                interleaved_inputs=[GenerationInput(content=wav, content_type=ContentType.SPEECH)],
+                generation_config=GenerationConfig(do_sample=False, max_new_tokens=256),
+            )
+            pred = outputs[0].content.strip().lower()
+            ref = transcript.lower().strip()
+            sample_wer = wer(ref, pred)
+            total += sample_wer
+            count += 1
         if use_wandb:
             wandb.log({
                 "sample_wer": sample_wer,
