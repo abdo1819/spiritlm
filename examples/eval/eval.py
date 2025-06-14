@@ -35,6 +35,7 @@ def _evaluate_dataset(model: Spiritlm, dataset: Iterable[Example], use_wandb: bo
         if sr != 16000:
             wav = torchaudio.functional.resample(wav, sr, 16000)
         wav = wav.squeeze(0)
+        wav = wav.to(dtype=torch.float32)
         outputs = model.generate(
             output_modality=OutputModality.TEXT,
             interleaved_inputs=[GenerationInput(content=wav, content_type=ContentType.SPEECH)],
