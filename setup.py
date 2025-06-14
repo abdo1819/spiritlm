@@ -55,6 +55,6 @@ setup(
     install_requires=_read_reqs("requirements.txt"),
     extras_require={
         "dev": ["pytest"],
-        "eval": ["pandas"],
+        "eval": ["pandas", "datasets", "jiwer"],
     },
 )

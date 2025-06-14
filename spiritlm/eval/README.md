@@ -90,3 +90,17 @@ python spiritlm/eval/eval_stsp.py \
 --pred_file ./data/examples/pred.jsonl
 > Accuracy: 100.00% for predictions ./data/examples/pred.jsonl
 ```
+
+## ASR Evaluation on LibriSpeech
+
+The script `predict_librispeech_asr.py` computes the Word Error Rate (WER) of
+Spirit LM on the LibriSpeech dataset from Hugging Face. It automatically
+downloads the requested split and configuration and reports the final WER.
+
+Example usage:
+
+```bash
+python spiritlm/eval/predict_librispeech_asr.py --config clean --split test
+```
+
+Use `--write_pred` to save the generated transcripts in JSONL format.
