@@ -8,7 +8,7 @@ import torchaudio
 from datasets import load_dataset,DownloadConfig
 
 
-Example = Tuple[torch.Tensor, int, str]
+Example = Tuple[torch.Tensor, int, str, str]
 
 
 dc = DownloadConfig(
@@ -37,12 +37,13 @@ def _load_librispeech_from_hf(subset: str) -> Iterable[Example]:
     hf_config, hf_split = _hf_config_and_split(subset)
     print(f"loading librispeech_asr , config {hf_config} split {hf_split}")
     # hf_dataset = load_dataset("mini_librispeech_asr", hf_config, split=hf_split,download_config=dc,trust_remote_code=True)
-    hf_dataset = load_dataset("librispeech_asr", hf_config, split=hf_split,download_config=dc,trust_remote_code=True)
+    hf_dataset = load_dataset("librispeech_asr", hf_config, split=hf_split, download_config=dc, trust_remote_code=True)
     for sample in hf_dataset:
         yield (
             torch.tensor(sample["audio"]["array"]),
             sample["audio"]["sampling_rate"],
             sample.get("text", ""),
+            str(sample.get("id", sample.get("file", ""))),
         )
 
 
@@ -58,6 +59,7 @@ def _load_gigaspeech_from_hf(subset: str) -> Iterable[Example]:
             torch.tensor(sample["audio"]["array"]),
             sample["audio"]["sampling_rate"],
             sample["text"],
+            str(sample.get("segment_id", sample.get("id", ""))),
         )
 
 

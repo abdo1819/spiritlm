@@ -25,13 +25,13 @@ from examples.eval.datasets_utils import load_dataset_local
 from examples.eval.metrics import wer
 
 
-Example = tuple[torch.Tensor, int, str]
+Example = tuple[torch.Tensor, int, str, str]
 
 
 def _evaluate_dataset(model: Spiritlm, dataset: Iterable[Example], use_wandb: bool, writer: SummaryWriter | None) -> float:
     total = 0.0
     count = 0
-    for wav, sr, transcript in tqdm(dataset, desc="Evaluating"):
+    for wav, sr, transcript, sample_id in tqdm(dataset, desc="Evaluating"):
         if sr != 16000:
             wav = torchaudio.functional.resample(wav, sr, 16000)
         wav = wav.squeeze(0)
@@ -47,10 +47,20 @@ def _evaluate_dataset(model: Spiritlm, dataset: Iterable[Example], use_wandb: bo
         total += sample_wer
         count += 1
         if use_wandb:
-            wandb.log({"sample_wer": sample_wer})
+            wandb.log({
+                "sample_wer": sample_wer,
+                "pred": pred,
+                "ground_truth": ref,
+                "id": sample_id,
+            })
         else:
             assert writer is not None
             writer.add_scalar("sample_wer", sample_wer, count)
+            writer.add_text(
+                "pred_ref",
+                f"id: {sample_id}\npred: {pred}\nref: {ref}",
+                global_step=count,
+            )
     return total / max(1, count)
 
 
