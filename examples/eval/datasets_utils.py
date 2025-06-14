@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Iterable, Tuple
 
 import torch
-import torchaudio
 from datasets import load_dataset,DownloadConfig
 
 
@@ -18,7 +16,7 @@ dc = DownloadConfig(
 )
 
 
-def _load_librispeech_from_hf(subset: str) -> Iterable[Example]:
+def _load_librispeech_from_hf(subset: str) -> tuple[Iterable[Example], int]:
     def _hf_config_and_split(name: str) -> tuple[str, str]:
         if name.startswith("test-"):
             config = "clean" if "clean" in name else "other"
@@ -38,36 +36,44 @@ def _load_librispeech_from_hf(subset: str) -> Iterable[Example]:
     print(f"loading librispeech_asr , config {hf_config} split {hf_split}")
     # hf_dataset = load_dataset("mini_librispeech_asr", hf_config, split=hf_split,download_config=dc,trust_remote_code=True)
     hf_dataset = load_dataset("librispeech_asr", hf_config, split=hf_split, download_config=dc, trust_remote_code=True)
-    for sample in hf_dataset:
-        yield (
-            torch.tensor(sample["audio"]["array"]),
-            sample["audio"]["sampling_rate"],
-            sample.get("text", ""),
-            str(sample.get("id", sample.get("file", ""))),
-        )
+
+    def _iter() -> Iterable[Example]:
+        for sample in hf_dataset:
+            yield (
+                torch.tensor(sample["audio"]["array"]),
+                sample["audio"]["sampling_rate"],
+                sample.get("text", ""),
+                str(sample.get("id", sample.get("file", ""))),
+            )
+
+    return _iter(), len(hf_dataset)
 
 
-def load_librispeech(subset: str) -> Iterable[Example]:
-    yield from _load_librispeech_from_hf(subset)
+def load_librispeech(subset: str) -> tuple[Iterable[Example], int]:
+    return _load_librispeech_from_hf(subset)
 
 
-def _load_gigaspeech_from_hf(subset: str) -> Iterable[Example]:
+def _load_gigaspeech_from_hf(subset: str) -> tuple[Iterable[Example], int]:
     print(f"loadnig speechcolab/gigaspeech , XS , split {subset}")
     hf_dataset = load_dataset("speechcolab/gigaspeech", "XS", split=subset)
-    for sample in hf_dataset:
-        yield (
-            torch.tensor(sample["audio"]["array"]),
-            sample["audio"]["sampling_rate"],
-            sample["text"],
-            str(sample.get("segment_id", sample.get("id", ""))),
-        )
+
+    def _iter() -> Iterable[Example]:
+        for sample in hf_dataset:
+            yield (
+                torch.tensor(sample["audio"]["array"]),
+                sample["audio"]["sampling_rate"],
+                sample["text"],
+                str(sample.get("segment_id", sample.get("id", ""))),
+            )
+
+    return _iter(), len(hf_dataset)
 
 
-def load_gigaspeech(subset: str) -> Iterable[Example]:
-    yield from _load_gigaspeech_from_hf(subset)
+def load_gigaspeech(subset: str) -> tuple[Iterable[Example], int]:
+    return _load_gigaspeech_from_hf(subset)
 
 
-def load_dataset_local(name: str, subset: str) -> Iterable[Example]:
+def load_dataset_local(name: str, subset: str) -> tuple[Iterable[Example], int]:
     name = name.lower()
     if name in {"librispeech", "libri"}:
         return load_librispeech(subset)

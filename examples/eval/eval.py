@@ -28,10 +28,16 @@ from examples.eval.metrics import wer
 Example = tuple[torch.Tensor, int, str, str]
 
 
-def _evaluate_dataset(model: Spiritlm, dataset: Iterable[Example], use_wandb: bool, writer: SummaryWriter | None) -> float:
+def _evaluate_dataset(
+    model: Spiritlm,
+    dataset: Iterable[Example],
+    use_wandb: bool,
+    writer: SummaryWriter | None,
+    total_size: int | None = None,
+) -> float:
     total = 0.0
     count = 0
-    for wav, sr, transcript, sample_id in tqdm(dataset, desc="Evaluating"):
+    for wav, sr, transcript, sample_id in tqdm(dataset, desc="Evaluating", total=total_size):
         if sr != 16000:
             wav = torchaudio.functional.resample(wav, sr, 16000)
         wav = wav.squeeze(0)
@@ -83,9 +89,9 @@ def main() -> None:
     else:
         writer = SummaryWriter(log_dir=f"runs/{dataset_name}_eval")
 
-    dataset = load_dataset_local(dataset_name, subset)
+    dataset, dataset_size = load_dataset_local(dataset_name, subset)
     model = Spiritlm(model_name)
-    avg_wer = _evaluate_dataset(model, dataset, use_wandb, writer)
+    avg_wer = _evaluate_dataset(model, dataset, use_wandb, writer, dataset_size)
 
     if use_wandb:
         wandb.summary["wer"] = avg_wer
