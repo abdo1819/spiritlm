@@ -521,12 +521,14 @@ class Spiritlm:
         else:
             forbidden_token_ids = None
 
+        if generation_config.pad_token_id is None:
+            generation_config.pad_token_id = -1
+
         # Perform the generation
         generate_ids = self.model.generate(
             **inputs,
             generation_config=generation_config,
             bad_words_ids=forbidden_token_ids,
-            pad_token_id=-1,
         )
 
         # Decode the output
