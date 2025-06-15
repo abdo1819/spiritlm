@@ -79,9 +79,10 @@ def run(args):
     set_seed(args.seed)
     spiritlm_model = Spiritlm(args.model)
     wandb.init(
+        mode="disabled" if world_rank != 0 else "online",
         project=args.wandb_project,
         name=args.run_name or f"{args.model}-{args.subset}",
-        disable=world_rank != 0,
+        # disable=world_rank != 0,
     )
 
     def parse_subset(name: str) -> Tuple[str, str]:
@@ -102,9 +103,8 @@ def run(args):
         "librispeech_asr",
         config,
         split=split,
-        cache_dir=args.dataset_root,
         trust_remote_code=True,
-    ).cast_column("audio", Audio(decode=True))
+    )
 
     dataset = dataset.shard(num_shards=world_size, index=world_rank)
 
@@ -119,17 +119,21 @@ def run(args):
             desc=f"Rank {world_rank} predict {args.subset}",
         )
     ):
-        wav = sample["audio"]["array"]
+        wav = torch.tensor(sample["audio"]["array"])
+        wav = wav.to(dtype=torch.float32)
         transcript = sample["text"]
         out: InterleavedOutputs = spiritlm_model.generate(
             output_modality=OutputModality.TEXT,
             interleaved_inputs=[
-                GenerationInput(content=wav, content_type=ContentType.SPEECH)
+                GenerationInput(content="transcripe the follwoing audio", content_type=ContentType.TEXT),
+                GenerationInput(content=wav, content_type=ContentType.SPEECH),
+                GenerationInput(content="transcription", content_type=ContentType.TEXT),
+                
             ],
             generation_config=GenerationConfig(
-                temperature=0.8,
+                temperature=0.3,
                 top_p=0.95,
-                max_new_tokens=300,
+                max_new_tokens=100,
                 do_sample=True,
             ),
         )
@@ -138,7 +142,7 @@ def run(args):
         ref = transcript.lower().strip()
         wer = word_error_rate(ref, predicted_text.lower())
         wers.append(wer)
-        predictions[str(i)] = {"pred": predicted_text, "ref": ref}
+        predictions[str(i)] = {"pred": predicted_text, "ref": ref, "wer": wer}
         wandb.log({"wer": wer}, step=i)
 
     if args.eval:
@@ -158,6 +162,12 @@ def run(args):
     if args.write_pred is not None and world_rank == 0:
         write_jsonl(args.write_pred, all_predictions)
 
+    if world_rank == 0:
+        table = wandb.Table(columns=["id", "pred", "ref", "wer"])
+        for idx, result in all_predictions.items():
+            table.add_data(idx, result["pred"], result["ref"], result["wer"])
+        wandb.log({"predictions_table": table})
+
     wandb.finish()
 
 
@@ -167,12 +177,6 @@ def setup_env():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--dataset_root",
-        type=str,
-        default="data/hf_cache",
-        help="Local cache directory for the dataset",
-    )
     parser.add_argument(
         "--subset",
         type=str,
