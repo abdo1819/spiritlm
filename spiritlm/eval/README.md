@@ -90,3 +90,20 @@ python spiritlm/eval/eval_stsp.py \
 --pred_file ./data/examples/pred.jsonl
 > Accuracy: 100.00% for predictions ./data/examples/pred.jsonl
 ```
+
+# ASR Evaluation on LibriSpeech
+
+You can evaluate the ASR capabilities of Spirit LM using the LibriSpeech dataset from the Hugging Face Hub. The dataset will be downloaded automatically to a cache directory (default: `data/hf_cache`) the first time you run the script.
+
+```
+cd {SPIRITLM ROOT FOLDER}
+export PYTHONPATH=.
+spiritlm=spirit-lm-expressive-7b
+torchrun --nnodes 1 --nproc-per-node 1 spiritlm/eval/asr/predict_asr.py \
+    --subset test-clean --model $spiritlm \
+    --eval --write_pred ./librispeech_pred.jsonl \
+    --wandb_project spiritlm-asr --run_name test-clean
+```
+
+The script prints the average WER for the evaluated subset and logs metrics to
+Weights & Biases (only on rank 0) while displaying a progress bar per worker.
